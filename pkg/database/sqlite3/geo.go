@@ -10,7 +10,7 @@ import (
 	"os"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/nukr/experiment/sqlite/pkg/geo"
+	"github.com/nukr/geo/pkg/geo"
 )
 
 type geoRepository struct {

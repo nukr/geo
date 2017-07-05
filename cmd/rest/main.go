@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/gorilla/mux"
-	database "github.com/nukr/experiment/sqlite/pkg/database/sqlite3"
-	"github.com/nukr/experiment/sqlite/pkg/geo"
+	database "github.com/nukr/geo/pkg/database/sqlite3"
+	"github.com/nukr/geo/pkg/geo"
 )
 
 func main() {
