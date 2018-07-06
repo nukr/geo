@@ -54,7 +54,11 @@ func NewGeoRepository(db *sql.DB) (geo.Repository, error) {
 		g.cityList[lang] = append(g.cityList[lang], city)
 	}
 
-	areaList, err := db.Query("select distinct area, zip, city from (SELECT area, substr(zip, 1, 3) as zip, city from zip32) as zip32 order by zip")
+	areaList, err := db.Query(`
+	select distinct area, zip, city
+	from (SELECT area, substr(zip, 1, 2) as zip, city from zip32) as zip32
+	order by zip
+	`)
 	if err != nil {
 		return nil, errors.Wrap(err, "db.Query areaList")
 	}
