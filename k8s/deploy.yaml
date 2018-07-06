@@ -1,0 +1,54 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: address
+  labels:
+    app: address
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: address
+    spec:
+      restartPolicy: Always
+      containers:
+      - name: cloudsql-proxy
+        image: gcr.io/cloudsql-docker/gce-proxy:1.09
+        command: ["/cloud_sql_proxy", "--dir=/cloudsql",
+          "-instances=instant-matter-785:asia-east1:meepshop-test=tcp:5432",
+          "-credential_file=/secrets/cloudsql/credentials.json"]
+        volumeMounts:
+          - name: cloudsql-instance-credentials
+            mountPath: /secrets/cloudsql
+            readOnly: true
+          - name: ssl-certs
+            mountPath: /etc/ssql/certs
+          - name: cloudsql
+            mountPath: /cloudsql
+      - name: address
+        image: asia.gcr.io/instant-matter-785/address:0.0.1
+        env:
+        - name: POSTGRES_DSN
+          value: "postgres://postgres:8cyt5fsbINl95Num@localhost:5432/address?sslmode=disable"
+        - name: DOMAIN
+          value: "address.meepstage.com"
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/credentials/credentials.json"
+        volumeMounts:
+          - name: "input-secret"
+            mountPath: "/credentials/"
+            readOnly: true
+      volumes:
+        - name: "input-secret"
+          secret:
+            secretName: "input"
+        - name: cloudsql-instance-credentials
+          secret:
+            secretName: cloudsql-instance-credentials
+        - name: ssl-certs
+          hostPath:
+            path: /etc/ssl/certs
+        - name: cloudsql
+          emptyDir:
+

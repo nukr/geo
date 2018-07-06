@@ -1,3 +1,7 @@
-FROM golang:1.8.3
+FROM debian:stable
 
-RUN go get github.com/tockins/realize
+RUN apt-get update && apt-get install -y ca-certificates
+
+COPY main /main
+
+CMD ["/main"]

@@ -2,17 +2,15 @@ package geo
 
 // Repository provides access a geo store.
 type Repository interface {
-	GetCountry(string) []*Geo
-	GetCounty(string) []*Geo
-	GetDistrict(string, string) []*Geo
-	GetStreet(string, string, string) []*Geo
+	GetCountryList(lang string) []string
+	GetCityList(country string) []string
+	GetAreaList(city string) []string
+	GetGeo(city, area string) *Geo
 }
 
 // Geo ...
 type Geo struct {
-	Zip      string
-	Country  string
-	County   string
-	District string
-	Street   string
+	Name       string   `json:"name"`
+	Zip        int      `json:"zip"`
+	StreetName []string `json:"street_name"`
 }

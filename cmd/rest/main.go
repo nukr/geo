@@ -1,20 +1,34 @@
 package main
 
 import (
+	"crypto/tls"
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
-	"strconv"
+	"os"
 	"strings"
 
 	"github.com/gorilla/mux"
-	database "github.com/nukr/geo/pkg/database/sqlite3"
+	_ "github.com/lib/pq"
 	"github.com/nukr/geo/pkg/geo"
+	"github.com/nukr/geo/pkg/repository"
+	"golang.org/x/crypto/acme/autocert"
 )
 
 func main() {
+	dsn := os.Getenv("POSTGRES_DSN")
+	db, err := sql.Open("postgres", dsn)
+	if err != nil {
+		log.Fatal(err)
+	}
 	r := mux.NewRouter()
-	geoRepo := database.NewGeoRepository()
+	geoRepo, err := repository.NewGeoRepository(db)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 	r.Methods("OPTIONS").HandlerFunc(corsPreflight())
 	r.HandleFunc("/", healthCheck())
 	r.HandleFunc("/list", getCountry(geoRepo))
@@ -22,7 +36,25 @@ func main() {
 	r.HandleFunc("/list/{country}/{county}", getDistrict(geoRepo))
 	r.HandleFunc("/list/{country}/{county}/{district}", getStreet(geoRepo))
 	r.HandleFunc("/healthz", healthCheck())
-	http.ListenAndServe(":8888", r)
+	domain := os.Getenv("DOMAIN")
+	if domain != "" {
+		fmt.Printf("listening on port 443 with autocert %s\n", domain)
+		m := &autocert.Manager{
+			Cache:      autocert.DirCache("secret-dir"),
+			Prompt:     autocert.AcceptTOS,
+			HostPolicy: autocert.HostWhitelist(domain),
+		}
+		go http.ListenAndServe(":http", m.HTTPHandler(nil))
+		s := &http.Server{
+			Addr:      ":https",
+			TLSConfig: &tls.Config{GetCertificate: m.GetCertificate},
+			Handler:   r,
+		}
+		s.ListenAndServeTLS("", "")
+	} else {
+		fmt.Println("listening on port 8888")
+		http.ListenAndServe(":8888", r)
+	}
 }
 
 func corsPreflight() http.HandlerFunc {
@@ -64,12 +96,8 @@ func getCountry(geoRepo geo.Repository) http.HandlerFunc {
 		if acceptLang != "zh-tw" {
 			acceptLang = "en-us"
 		}
-		geos := geoRepo.GetCountry(acceptLang)
-		var zz []string
-		for _, geo := range geos {
-			zz = append(zz, geo.Country)
-		}
-		data, _ := json.Marshal(zz)
+		countryList := geoRepo.GetCountryList(acceptLang)
+		data, _ := json.Marshal(countryList)
 		w.Write(data)
 	}
 }
@@ -79,12 +107,8 @@ func getCounty(geoRepo geo.Repository) http.HandlerFunc {
 		h := w.Header()
 		h.Add("Content-Type", "application/json; charset=utf-8")
 		h.Add("Access-Control-Allow-Origin", "*")
-		geos := geoRepo.GetCounty("台灣")
-		var zz []string
-		for _, geo := range geos {
-			zz = append(zz, geo.County)
-		}
-		data, _ := json.Marshal(zz)
+		cityList := geoRepo.GetCityList("zh-tw")
+		data, _ := json.Marshal(cityList)
 		w.Write(data)
 	}
 }
@@ -94,14 +118,9 @@ func getDistrict(geoRepo geo.Repository) func(http.ResponseWriter, *http.Request
 		h := w.Header()
 		h.Add("Content-Type", "application/json; charset=utf-8")
 		h.Add("Access-Control-Allow-Origin", "*")
-		country := mux.Vars(r)["country"]
 		county := mux.Vars(r)["county"]
-		geos := geoRepo.GetDistrict(country, county)
-		var zz []string
-		for _, geo := range geos {
-			zz = append(zz, geo.County)
-		}
-		data, _ := json.Marshal(zz)
+		areaList := geoRepo.GetAreaList(county)
+		data, _ := json.Marshal(areaList)
 		w.Write(data)
 	}
 }
@@ -111,26 +130,10 @@ func getStreet(geoRepo geo.Repository) func(http.ResponseWriter, *http.Request) 
 		h := w.Header()
 		h.Add("Content-Type", "application/json; charset=utf-8")
 		h.Add("Access-Control-Allow-Origin", "*")
-		country := mux.Vars(r)["country"]
 		county := mux.Vars(r)["county"]
 		district := mux.Vars(r)["district"]
-		geos := geoRepo.GetStreet(country, county, district)
-		type Street struct {
-			Name       string   `json:"name"`
-			Zip        int      `json:"zip"`
-			StreetName []string `json:"street_name"`
-		}
-		var zz []string
-		for _, geo := range geos {
-			zz = append(zz, geo.Street)
-		}
-		zip, _ := strconv.Atoi(geos[0].Zip[0:3])
-		street := Street{
-			Name:       geos[0].District,
-			Zip:        zip,
-			StreetName: zz,
-		}
-		data, _ := json.Marshal(street)
+		g := geoRepo.GetGeo(county, district)
+		data, _ := json.Marshal(g)
 		w.Write(data)
 	}
 }
