@@ -2,12 +2,12 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: address
-  name: address
+    app: geo
+  name: geo
 spec:
   ports:
     - port: 8888
       targetPort: 8888
   selector:
-    app: address
+    app: geo
   type: NodePort
