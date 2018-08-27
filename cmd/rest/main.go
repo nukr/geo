@@ -93,7 +93,7 @@ func getCountry(geoRepo geo.Repository) http.HandlerFunc {
 		h.Add("Content-Type", "application/json; charset=utf-8")
 		h.Add("Access-Control-Allow-Origin", "*")
 		acceptLang := strings.Split(strings.ToLower(req.Header.Get("Accept-Language")), ",")[0]
-		if acceptLang != "zh-tw" {
+		if acceptLang == "" {
 			acceptLang = "en-us"
 		}
 		countryList := geoRepo.GetCountryList(acceptLang)
